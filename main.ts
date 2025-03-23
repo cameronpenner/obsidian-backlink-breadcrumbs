@@ -1,13 +1,13 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
 // Remember to rename these classes and interfaces!
 
 interface MyPluginSettings {
-	mySetting: string;
+	rootPath: string;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+	rootPath: 'Root.md'
 }
 
 export default class MyPlugin extends Plugin {
@@ -16,70 +16,148 @@ export default class MyPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		console.log('onload');
+		this.addCustomDiv();
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+		statusBarItemEl.setText('3 steps to ' + this.settings.rootPath);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
+	}
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
+	addCustomDiv() {
+		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+			this.insertBreadcrumb(this.app.workspace.activeLeaf);
+		}));
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		this.registerEvent(this.app.workspace.on('layout-change', () => {
+			const leaves = this.app.workspace.getLeavesOfType('markdown');
+
+			leaves.forEach(leaf => {
+				this.insertBreadcrumb(leaf);
+			});
+		}));
+	}
+
+	insertBreadcrumb(activeLeaf: any) {
+		if (activeLeaf) {
+			const editorView = activeLeaf.view;
+			const contentContainer = editorView.containerEl.querySelector('.cm-editor');
+
+			// Check if the view is in edit mode and if the div already exists
+			const isInEditMode = editorView.containerEl.classList.contains('is-live-preview') === false;
+
+			if (isInEditMode) {  // This ensures we're in edit mode
+				const existingDiv = contentContainer?.querySelector('.breadcrumb-div');
+				if (existingDiv) return;
+				if (activeLeaf.view.file?.path === this.settings.rootPath) {
+					return;
+				}
+
+				if (contentContainer) {
+					const breadcrumbDiv = document.createElement('div');
+
+					// Use traceToRoot to get the breadcrumb trail
+					const activeFile = activeLeaf.view.file;
+					if (activeFile) {
+						this.traceToRoot(activeFile.path).then((breadcrumbTrail) => {
+							const breadcrumbTrailString = breadcrumbTrail.join(' → ');
+							console.log('trail from ' + activeFile.path + ' to ' + this.settings.rootPath + ' is ' + breadcrumbTrailString);
+
+							breadcrumbTrail.reverse().forEach((filePath, index) => {
+								const link = document.createElement('a');
+								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(filePath)}`);
+								link.textContent = filePath.replace(/\.[^/.]+$/, '');
+
+								// Add a separator if not the last breadcrumb
+								if (index < breadcrumbTrail.length - 1) {
+									const separator = document.createElement('span');
+									separator.textContent = ' → ';
+									breadcrumbDiv.appendChild(link);
+									breadcrumbDiv.appendChild(separator);
+								} else {
+									breadcrumbDiv.appendChild(link);
+								}
+							});
+
+							if(breadcrumbTrail.length == 0)
+							{
+								const failText = document.createElement('text');
+								failText.textContent = 'No path back to ';
+								breadcrumbDiv.appendChild(failText);
+								
+								const link = document.createElement('a');
+								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(this.settings.rootPath)}`);
+								link.textContent = this.settings.rootPath.replace(/\.[^/.]+$/, '');
+								breadcrumbDiv.appendChild(link);
+							}
+						});
+					}
+
+					breadcrumbDiv.classList.add('breadcrumb-div');
+					breadcrumbDiv.style.marginLeft = '20px';
+
+					contentContainer.prepend(breadcrumbDiv);
+				}
+			} else {
+				const existingDiv = contentContainer?.querySelector('.breadcrumb-div');
+				if (existingDiv) {
+					existingDiv.remove();
+				}
+			}
+		}
+	}
+
+	async traceToRoot(startingFile: string): Promise<string[]> {
+		const backlinks: string[] = [];
+		const queue: string[] = [this.settings.rootPath];
+		const visited: Set<string> = new Set();
+		const parentMap: Map<string, string> = new Map();
+
+		while (queue.length > 0) {
+			const currentFile = queue.shift()!;
+			if (visited.has(currentFile)) {
+				continue;
+			}
+
+			visited.add(currentFile);
+
+			if (currentFile === startingFile) {
+				// Trace back the path from root to startingFile
+				let traceFile = currentFile;
+				while (traceFile) {
+					backlinks.push(traceFile);
+					traceFile = parentMap.get(traceFile) || '';
+				}
+				break;
+			}
+
+			const linkedBy = this.app.metadataCache.resolvedLinks[currentFile];
+			if (linkedBy) {
+				for (const nextFile of Object.keys(linkedBy)) {
+					if (!visited.has(nextFile)) {
+						queue.push(nextFile);
+						parentMap.set(nextFile, currentFile);
+					}
+				}
+			}
+		}
+
+		return backlinks;
 	}
 
 	onunload() {
-
+		const leaves = this.app.workspace.getLeavesOfType('markdown');
+		leaves.forEach(leaf => {
+			const editorView = leaf.view;
+			const contentContainer = editorView.containerEl.querySelector('.cm-editor');
+			const existingDiv = contentContainer?.querySelector('.breadcrumb-div');
+			if (existingDiv) {
+				existingDiv.remove();
+			}
+		});
 	}
 
 	async loadSettings() {
@@ -88,22 +166,6 @@ export default class MyPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
 	}
 }
 
@@ -116,19 +178,20 @@ class SampleSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('Root Note Path')
+			.setDesc('This is where all your breadcrumbs will point back to.')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+				.setPlaceholder('Enter your note path')
+				.setValue(this.plugin.settings.rootPath)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.rootPath = value;
 					await this.plugin.saveSettings();
+					console.log('Root changed to ', this.plugin.settings.rootPath);
 				}));
 	}
 }
