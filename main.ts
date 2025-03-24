@@ -29,16 +29,26 @@ export default class MyPlugin extends Plugin {
 
 	addCustomDiv() {
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
-			this.insertBreadcrumb(this.app.workspace.activeLeaf);
+			this.refreshWorkspace();
 		}));
 
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
-			const leaves = this.app.workspace.getLeavesOfType('markdown');
-
-			leaves.forEach(leaf => {
-				this.insertBreadcrumb(leaf);
-			});
+			this.refreshWorkspace();
 		}));
+	}
+
+	refreshWorkspace() {
+		const leaves = this.app.workspace.getLeavesOfType('markdown');
+		leaves.forEach(leaf => {
+			const editorView = leaf.view;
+			const contentContainer = editorView.containerEl.querySelector('.cm-editor');
+			const existingDiv = contentContainer?.querySelector('.breadcrumb-div');
+			if (existingDiv) {
+				existingDiv.remove();
+			}
+
+			this.insertBreadcrumb(leaf);
+		});
 	}
 
 	insertBreadcrumb(activeLeaf: any) {
@@ -69,6 +79,7 @@ export default class MyPlugin extends Plugin {
 							breadcrumbTrail.reverse().forEach((filePath, index) => {
 								const link = document.createElement('a');
 								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(filePath)}`);
+								link.setAttribute('target', '_blank'); // Allow middle-click to open in a new tab
 								link.textContent = filePath.replace(/\.[^/.]+$/, '');
 
 								// Add a separator if not the last breadcrumb
@@ -82,12 +93,11 @@ export default class MyPlugin extends Plugin {
 								}
 							});
 
-							if(breadcrumbTrail.length == 0)
-							{
+							if (breadcrumbTrail.length == 0) {
 								const failText = document.createElement('text');
 								failText.textContent = 'No path back to ';
 								breadcrumbDiv.appendChild(failText);
-								
+
 								const link = document.createElement('a');
 								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(this.settings.rootPath)}`);
 								link.textContent = this.settings.rootPath.replace(/\.[^/.]+$/, '');
@@ -138,7 +148,7 @@ export default class MyPlugin extends Plugin {
 			if (linkedBy) {
 				for (const nextFile of Object.keys(linkedBy)) {
 					if (!visited.has(nextFile)) {
-						queue.push(nextFile);
+						queue.unshift(nextFile);
 						parentMap.set(nextFile, currentFile);
 					}
 				}
