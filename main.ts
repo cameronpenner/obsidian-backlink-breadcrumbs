@@ -80,7 +80,7 @@ export default class MyPlugin extends Plugin {
 
 							if (breadcrumbTrail.length == 0) {
 								const failText = document.createElement('text');
-								failText.textContent = 'No path back to ';
+								failText.textContent = 'No path found from ';
 								breadcrumbDiv.appendChild(failText);
 
 								const link = document.createElement('a');
