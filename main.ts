@@ -1,6 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
-
-// Remember to rename these classes and interfaces!
+import { App, Plugin, MarkdownRenderer, MarkdownRenderChild, PluginSettingTab, Setting } from 'obsidian';
 
 interface MyPluginSettings {
 	rootPath: string;
@@ -19,7 +17,6 @@ export default class MyPlugin extends Plugin {
 		console.log('onload');
 		this.addCustomDiv();
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 	}
 
@@ -27,10 +24,6 @@ export default class MyPlugin extends Plugin {
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
 			this.refreshWorkspace();
 		}));
-
-		// this.registerEvent(this.app.workspace.on('layout-change', () => {
-		// 	this.refreshWorkspace();
-		// }));
 	}
 
 	refreshWorkspace() {
@@ -52,10 +45,9 @@ export default class MyPlugin extends Plugin {
 			const editorView = activeLeaf.view;
 			const contentContainer = editorView.containerEl.querySelector('.cm-editor');
 
-			// Check if the view is in edit mode and if the div already exists
 			const isInEditMode = editorView.containerEl.classList.contains('is-live-preview') === false;
 
-			if (isInEditMode) {  // This ensures we're in edit mode
+			if (isInEditMode) {
 				const existingDiv = contentContainer?.querySelector('.breadcrumb-div');
 				if (existingDiv) return;
 				if (activeLeaf.view.file?.path === this.settings.rootPath) {
@@ -65,7 +57,6 @@ export default class MyPlugin extends Plugin {
 				if (contentContainer) {
 					const breadcrumbDiv = document.createElement('div');
 
-					// Use traceToRoot to get the breadcrumb trail
 					const activeFile = activeLeaf.view.file;
 					if (activeFile) {
 						this.traceToRoot(activeFile.path).then((breadcrumbTrail) => {
@@ -75,17 +66,15 @@ export default class MyPlugin extends Plugin {
 							breadcrumbTrail.reverse().forEach((filePath, index) => {
 								const link = document.createElement('a');
 								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(filePath)}`);
-								link.setAttribute('target', '_blank'); // Allow middle-click to open in a new tab
 								link.textContent = filePath.replace(/\.[^/.]+$/, '');
+
+								breadcrumbDiv.appendChild(link);
 
 								// Add a separator if not the last breadcrumb
 								if (index < breadcrumbTrail.length - 1) {
 									const separator = document.createElement('span');
 									separator.textContent = ' → ';
-									breadcrumbDiv.appendChild(link);
 									breadcrumbDiv.appendChild(separator);
-								} else {
-									breadcrumbDiv.appendChild(link);
 								}
 							});
 
@@ -142,7 +131,7 @@ export default class MyPlugin extends Plugin {
 
 			const linkedBy = this.app.metadataCache.resolvedLinks[currentFile];
 			if (linkedBy) {
-				for (const nextFile of Object.keys(linkedBy)) {
+				for (const nextFile of Object.keys(linkedBy).reverse()) {
 					if (!visited.has(nextFile)) {
 						queue.unshift(nextFile);
 						parentMap.set(nextFile, currentFile);
