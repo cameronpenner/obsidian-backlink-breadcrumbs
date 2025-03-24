@@ -19,10 +19,6 @@ export default class MyPlugin extends Plugin {
 		console.log('onload');
 		this.addCustomDiv();
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('3 steps to ' + this.settings.rootPath);
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 	}
@@ -32,9 +28,9 @@ export default class MyPlugin extends Plugin {
 			this.refreshWorkspace();
 		}));
 
-		this.registerEvent(this.app.workspace.on('layout-change', () => {
-			this.refreshWorkspace();
-		}));
+		// this.registerEvent(this.app.workspace.on('layout-change', () => {
+		// 	this.refreshWorkspace();
+		// }));
 	}
 
 	refreshWorkspace() {
