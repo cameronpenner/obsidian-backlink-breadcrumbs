@@ -6,6 +6,11 @@ This is very helpful in flat vault structures.
 
 ![](screenshot.png)
 
+## How to Install
+1. Download this repository into your `.obsidian/plugins` folder.
+2. Enable community plugins in Obsidian
+3. Enable Backlink Breadcrumbs
+
 ## Features
 - Files all have a trace at the top leading back to the Root file
 - The Root file can be specified in the settings
