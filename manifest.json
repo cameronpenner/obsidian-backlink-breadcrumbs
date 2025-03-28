@@ -1,7 +1,7 @@
 {
 	"id": "backlink-breadcrumbs",
 	"name": "Backlink Breadcrumbs",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"minAppVersion": "0.15.0",
 	"description": "Draws a breadcrumb trail back to a root note at the top of every file",
 	"author": "CameronPenner",
