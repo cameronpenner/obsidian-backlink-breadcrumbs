@@ -1,4 +1,4 @@
-import { App, Plugin, MarkdownRenderer, MarkdownRenderChild, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
 interface MyPluginSettings {
 	rootPath: string;
@@ -53,10 +53,12 @@ export default class MyPlugin extends Plugin {
 
 			if (isInEditMode) {
 				const existingDiv = contentContainer?.querySelector('.breadcrumb-div');
+
 				if (existingDiv) return;
-				if (activeLeaf.view.file?.path === this.settings.rootPath) {
-					return;
-				}
+
+				if (activeLeaf.view.file?.path === this.settings.rootPath) return;
+
+				if (this.isFileIgnored(activeLeaf.view.file?.path)) return;
 
 				if (contentContainer) {
 					const breadcrumbDiv = document.createElement('div');
@@ -128,14 +130,14 @@ export default class MyPlugin extends Plugin {
 
 		while (queue.length > 0) {
 			const currentFile = queue.shift()!;
-			if (visited.has(currentFile)) {
-				continue;
-			}
+
+			if (visited.has(currentFile)) continue;
+
+			if (this.isFileIgnored(currentFile)) continue;
 
 			visited.add(currentFile);
 
 			if (currentFile === startingFile) {
-				// Trace back the path from root to startingFile
 				let traceFile = currentFile;
 				while (traceFile) {
 					backlinks.push(traceFile);
@@ -156,6 +158,22 @@ export default class MyPlugin extends Plugin {
 		}
 
 		return backlinks;
+	}
+
+	isFileIgnored(fileName: string): boolean {
+		const file = this.app.vault.getFileByPath(fileName);
+		if (file) {
+			const fileCache = this.app.metadataCache.getFileCache(file);
+
+			if (fileCache?.tags) {
+				const ignoredTagsArray = this.settings.ignoredTags.split(',').map(tag => tag.trim());
+				if (fileCache.tags.some(tag => ignoredTagsArray.includes(tag.tag))) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	onunload() {
@@ -203,17 +221,16 @@ class SampleSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// TODO
-		// new Setting(containerEl)
-		// 	.setName('Ignored Tag')
-		// 	.setDesc('Files with this tag will be ignored from backlink traversal and orphan search.')
-		// 	.addText(text => text
-		// 		.setPlaceholder('archived')
-		// 		.setValue(this.plugin.settings.ignoredTags)
-		// 		.onChange(async (value) => {
-		// 			this.plugin.settings.ignoredTags = value;
-		// 			await this.plugin.saveSettings();
-		// 		}));
+		new Setting(containerEl)
+			.setName('Ignored Tags')
+			.setDesc('Files with these tag will be ignored from backlink traversal and orphan search.')
+			.addText(text => text
+				.setPlaceholder('#archived, #ignored')
+				.setValue(this.plugin.settings.ignoredTags)
+				.onChange(async (value) => {
+					this.plugin.settings.ignoredTags = value;
+					await this.plugin.saveSettings();
+				}));
 
 		new Setting(containerEl)
 			.setName('Hide File Path')
