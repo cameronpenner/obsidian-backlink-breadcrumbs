@@ -2,10 +2,14 @@ import { App, Plugin, MarkdownRenderer, MarkdownRenderChild, PluginSettingTab, S
 
 interface MyPluginSettings {
 	rootPath: string;
+	ignoredTags: string;
+	hidePath: boolean;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	rootPath: 'Root.md'
+	rootPath: 'Root.md',
+	ignoredTags: '',
+	hidePath: true
 }
 
 export default class MyPlugin extends Plugin {
@@ -59,14 +63,14 @@ export default class MyPlugin extends Plugin {
 
 					const activeFile = activeLeaf.view.file;
 					if (activeFile) {
-						this.traceToRoot(activeFile.path).then((breadcrumbTrail) => {
+						this.traceToRootFirst(activeFile.path).then((breadcrumbTrail) => {
 							const breadcrumbTrailString = breadcrumbTrail.join(' → ');
 							console.log('trail from ' + activeFile.path + ' to ' + this.settings.rootPath + ' is ' + breadcrumbTrailString);
 
 							breadcrumbTrail.reverse().forEach((filePath, index) => {
 								const link = document.createElement('a');
 								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(filePath)}`);
-								link.textContent = filePath.replace(/\.[^/.]+$/, '');
+								link.textContent = this.fileNameFromPath(filePath);
 
 								breadcrumbDiv.appendChild(link);
 
@@ -85,7 +89,7 @@ export default class MyPlugin extends Plugin {
 
 								const link = document.createElement('a');
 								link.setAttribute('href', `obsidian://open?file=${encodeURIComponent(this.settings.rootPath)}`);
-								link.textContent = this.settings.rootPath.replace(/\.[^/.]+$/, '');
+								link.textContent = this.fileNameFromPath(this.settings.rootPath);
 								breadcrumbDiv.appendChild(link);
 							}
 						});
@@ -105,7 +109,18 @@ export default class MyPlugin extends Plugin {
 		}
 	}
 
-	async traceToRoot(startingFile: string): Promise<string[]> {
+	fileNameFromPath(path: string): string {
+		var name = path.replace(/\.[^/.]+$/, '');
+
+		if (this.settings.hidePath) {
+			const parts = name.split('/');
+			name = parts[parts.length - 1];
+		}
+
+		return name;
+	}
+
+	async traceToRootFirst(startingFile: string): Promise<string[]> {
 		const backlinks: string[] = [];
 		const queue: string[] = [this.settings.rootPath];
 		const visited: Set<string> = new Set();
@@ -186,7 +201,28 @@ class SampleSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.rootPath = value;
 					await this.plugin.saveSettings();
-					console.log('Root changed to ', this.plugin.settings.rootPath);
+				}));
+
+		// TODO
+		// new Setting(containerEl)
+		// 	.setName('Ignored Tag')
+		// 	.setDesc('Files with this tag will be ignored from backlink traversal and orphan search.')
+		// 	.addText(text => text
+		// 		.setPlaceholder('archived')
+		// 		.setValue(this.plugin.settings.ignoredTags)
+		// 		.onChange(async (value) => {
+		// 			this.plugin.settings.ignoredTags = value;
+		// 			await this.plugin.saveSettings();
+		// 		}));
+
+		new Setting(containerEl)
+			.setName('Hide File Path')
+			.setDesc('File paths will not be shown.')
+			.addToggle(text => text
+				.setValue(this.plugin.settings.hidePath)
+				.onChange(async (value) => {
+					this.plugin.settings.hidePath = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }
