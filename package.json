@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "backlink-breadcrumbs",
+	"version": "0.0.2",
+	"description": "Draws a breadcrumb trail back to a root note at the top of every file",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
