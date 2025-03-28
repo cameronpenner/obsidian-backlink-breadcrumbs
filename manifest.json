@@ -1,9 +1,9 @@
 {
 	"id": "backlink-breadcrumbs",
 	"name": "Backlink Breadcrumbs",
-	"version": "1.0.0",
+	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
-	"description": "Draws a breadcrumb trail back to a root note at the top of every file.",
+	"description": "Draws a breadcrumb trail back to a root note at the top of every file",
 	"author": "CameronPenner",
 	"authorUrl": "https://github.com/cameronpenner/obsidian-backlink-breadcrumbs",
 	"fundingUrl": "https://obsidian.md/pricing",
